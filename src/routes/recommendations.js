@@ -7,6 +7,11 @@ const {
     getCombinedRecommendations 
 } = require('../controllers/recommendationController');
 
+// Test endpoint
+router.get('/combined', (req, res) => {
+  res.json({ message: 'Combined recommendations endpoint hit successfully!' });
+});
+
 // Individual routes
 router.post('/movies', getMovieRecommendations);
 router.post('/books', getBookRecommendations);
