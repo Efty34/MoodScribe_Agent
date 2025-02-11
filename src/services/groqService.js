@@ -18,43 +18,51 @@ async function getGroqRecommendations(prompt) {
       messages: [
         {
           role: 'system',
-          content: 'You are a recommendation system. Always return clean JSON without comments or explanations.'
+          content: 'You are a recommendation system. Always return valid JSON without any explanations, comments, or special characters. Ensure all strings are properly escaped.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       temperature: 0.7,
       max_tokens: 1000
     });
 
     const responseContent = completion.choices[0].message.content;
     
-    // Remove any comments and clean the JSON
-    const cleanJson = responseContent.replace(/\/\/.*$/gm, '')  // Remove single-line comments
-                                   .replace(/\/\*[\s\S]*?\*\//g, '')  // Remove multi-line comments
-                                   .trim();
-    
-    const parsedResponse = JSON.parse(cleanJson);
-    
-    // Check if the response has any of the expected keys
-    if (!parsedResponse.movies && !parsedResponse.books && !parsedResponse.songs) {
-      throw new Error('Response does not contain movies, books, or songs array');
-    }
+    // Clean the response: remove any non-JSON content
+    let cleanJson = responseContent
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/\\[rnt]/g, ' ') // Replace escape sequences with space
+      .replace(/```json/g, '') // Remove markdown code blocks if present
+      .replace(/```/g, '')
+      .trim();
 
-    // Validate that the found key contains an array
-    const key = parsedResponse.movies ? 'movies' : 
-                parsedResponse.books ? 'books' : 'songs';
-    
-    if (!Array.isArray(parsedResponse[key])) {
-      throw new Error(`${key} is not an array in the response`);
+    // Try to find JSON content between curly braces if there's surrounding text
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[0];
     }
+    
+    try {
+      const parsedResponse = JSON.parse(cleanJson);
+      
+      // Validate the response structure
+      if (!parsedResponse.movies && !parsedResponse.books && 
+          !parsedResponse.songs && !parsedResponse.exercises) {
+        throw new Error('Response does not contain any valid recommendation arrays');
+      }
 
-    return parsedResponse;
+      return parsedResponse;
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.error('Cleaned JSON content:', cleanJson);
+      throw new Error(`Invalid JSON response from Groq: ${parseError.message}`);
+    }
   } catch (error) {
-    console.error('Error in Groq service:', error.message);
+    console.error('Error in Groq service:', error);
     throw error;
   }
 }

@@ -4,6 +4,7 @@ const {
     getMovieRecommendations,
     getBookRecommendations,
     getMusicRecommendations,
+    getExerciseRecommendations,
     getCombinedRecommendations 
 } = require('../controllers/recommendationController');
 
@@ -16,6 +17,7 @@ router.get('/combined', (req, res) => {
 router.post('/movies', getMovieRecommendations);
 router.post('/books', getBookRecommendations);
 router.post('/music', getMusicRecommendations);
+router.post('/exercises', getExerciseRecommendations);
 
 // Combined recommendations route
 router.post('/combined', getCombinedRecommendations);

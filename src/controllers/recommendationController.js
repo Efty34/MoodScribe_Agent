@@ -1,4 +1,4 @@
-const { generateMoviePrompt, generateBookPrompt, generateMusicPrompt } = require('../utils/promptGenerator');
+const { generateMoviePrompt, generateBookPrompt, generateMusicPrompt, generateExercisePrompt } = require('../utils/promptGenerator');
 const { getGroqRecommendations } = require('../services/groqService');
 const { getMovieDetails } = require('../services/apiServices');
 const { getBookDetails } = require('../services/bookService');
@@ -132,6 +132,43 @@ async function getMusicRecommendations(req, res) {
   }
 }
 
+async function getExerciseRecommendations(req, res) {
+  try {
+    const { stressEntryPercentage, pastLikings = null } = req.body;
+
+    if (typeof stressEntryPercentage !== 'number' || 
+        stressEntryPercentage < 0 || 
+        stressEntryPercentage > 100) {
+      return res.status(400).json({ 
+        error: 'Invalid stress entry percentage. Must be a number between 0 and 100.' 
+      });
+    }
+
+    const exercisePreferences = pastLikings ? {
+      favoriteExercises: pastLikings.favoriteExercises || []
+    } : null;
+
+    const prompt = generateExercisePrompt(stressEntryPercentage, exercisePreferences);
+    const groqRecommendations = await getGroqRecommendations(prompt);
+
+    res.json({ 
+      exercises: groqRecommendations.exercises,
+      analysisContext: {
+        stressEntryPercentage,
+        nonStressEntryPercentage: 100 - stressEntryPercentage,
+        recommendationType: stressEntryPercentage >= 40 ? 'stress-relief' : 'positive-enhancement',
+        personalizedRecommendations: Boolean(exercisePreferences?.favoriteExercises?.length > 0)
+      }
+    });
+  } catch (error) {
+    console.error('Error in exercise recommendations:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get exercise recommendations',
+      details: error.message 
+    });
+  }
+}
+
 async function getCombinedRecommendations(req, res) {
   try {
     const { stressEntryPercentage, pastLikings = null } = req.body;
@@ -156,10 +193,15 @@ async function getCombinedRecommendations(req, res) {
       favoriteSongs: pastLikings.favoriteSongs || []
     } : null;
 
-    const [movieRecommendations, bookRecommendations, musicRecommendations] = await Promise.all([
+    const exercisePreferences = pastLikings ? {
+      favoriteExercises: pastLikings.favoriteExercises || []
+    } : null;
+
+    const [movieRecommendations, bookRecommendations, musicRecommendations, exerciseRecommendations] = await Promise.all([
       getGroqRecommendations(generateMoviePrompt(stressEntryPercentage, moviePreferences)),
       getGroqRecommendations(generateBookPrompt(stressEntryPercentage, bookPreferences)),
-      getGroqRecommendations(generateMusicPrompt(stressEntryPercentage, musicPreferences))
+      getGroqRecommendations(generateMusicPrompt(stressEntryPercentage, musicPreferences)),
+      getGroqRecommendations(generateExercisePrompt(stressEntryPercentage, exercisePreferences))
     ]);
 
     const [movies, books, songs] = await Promise.all([
@@ -172,6 +214,7 @@ async function getCombinedRecommendations(req, res) {
       movies,
       books,
       songs,
+      exercises: exerciseRecommendations.exercises,
       analysisContext: {
         stressEntryPercentage,
         nonStressEntryPercentage: 100 - stressEntryPercentage,
@@ -179,7 +222,8 @@ async function getCombinedRecommendations(req, res) {
         personalizedRecommendations: {
           movies: Boolean(moviePreferences?.favoriteMovies?.length > 0),
           books: Boolean(bookPreferences?.favoriteBooks?.length > 0),
-          songs: Boolean(musicPreferences?.favoriteSongs?.length > 0)
+          songs: Boolean(musicPreferences?.favoriteSongs?.length > 0),
+          exercises: Boolean(exercisePreferences?.favoriteExercises?.length > 0)
         }
       }
     });
@@ -196,5 +240,6 @@ module.exports = {
   getMovieRecommendations,
   getBookRecommendations,
   getMusicRecommendations,
+  getExerciseRecommendations,
   getCombinedRecommendations
 }; 

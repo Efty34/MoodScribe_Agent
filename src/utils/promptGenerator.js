@@ -82,8 +82,44 @@ function generateMusicPrompt(stressEntryPercentage, pastLikings = null) {
   return prompt;
 }
 
+function generateExercisePrompt(stressEntryPercentage, pastLikings = null) {
+  let prompt = `As an exercise recommendation system, suggest 5 diverse exercises for a user whose diary shows ${stressEntryPercentage}% stress entries. `;
+
+  if (pastLikings?.favoriteExercises?.length > 0) {
+    prompt += `Consider their favorite exercises: ${JSON.stringify(pastLikings.favoriteExercises)}, but ensure variety. `;
+  }
+
+  if (stressEntryPercentage >= 40) {
+    prompt += `Since stress is significant, recommend calming yet effective exercises that focus on stress relief and mental well-being.`;
+  } else {
+    prompt += `Since the mood is mostly positive, recommend engaging and energetic exercises that span multiple workout types.`;
+  }
+
+  prompt += ` Return ONLY a JSON object in this format (no markdown, no comments):
+  {
+    "exercises": [
+      {
+        "name": "simple exercise name",
+        "type": "simple category name",
+        "duration": "30",
+        "intensity": "low",
+        "description": "brief description",
+        "benefits": ["benefit1", "benefit2"],
+        "equipment": [],
+        "instructions": ["step1", "step2"],
+        "caloriesBurnedPerHour": "200",
+        "suitable": ["beginners"],
+        "location": "indoor"
+      }
+    ]
+  }`;
+
+  return prompt;
+}
+
 module.exports = {
   generateMoviePrompt,
   generateBookPrompt,
-  generateMusicPrompt
+  generateMusicPrompt,
+  generateExercisePrompt
 }; 
